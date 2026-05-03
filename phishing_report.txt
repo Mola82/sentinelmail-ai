@@ -1,0 +1,33 @@
+
+=== HYBRID AI PHISHING ANALYSIS REPORT ===
+
+--- Rule-Based Analysis ---
+Risk Score: 65 / 100
+Risk Level: High
+
+Indicators Found:
+- Suspicious phrase found: verify your account
+- Suspicious phrase found: click here
+- Suspicious phrase found: suspended
+- Non-secure HTTP link found
+- Shortened URL found
+
+
+--- AI Analysis ---
+1. Verdict: Phishing attempt  
+2. Risk Level: High  
+3. Main suspicious indicators:  
+   - Generic greeting ("Dear user") instead of personalized name  
+   - Urgent language ("Your account has been suspended") to create panic  
+   - Suspicious shortened URL (http://bit.ly/security-check) which obscures the destination link  
+   - No information about which service or company the account belongs to  
+4. Recommended SOC action:  
+   - Block the URL at the web gateway/firewall  
+   - Warn users about this phishing attempt via internal communication  
+   - Monitor for additional phishing emails using similar tactics  
+   - Advise users not to click on suspicious links in emails  
+   - If possible, trace the source IP/domain and report to abuse teams or authorities  
+5. Short explanation in simple language:  
+This email tries to trick you into clicking a fake link by saying your account is suspended. The link is shortened to hide where it really goes, which is dangerous. It's best not to click it and report such emails to IT or security.
+
+=========================================
