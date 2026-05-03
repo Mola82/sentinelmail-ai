@@ -6,6 +6,17 @@ import re
 app = Flask(__name__)
 client = OpenAI()
 
+SUSPICIOUS_TERMS = [
+    "urgent", "verify your account", "password", "click here",
+    "limited time", "suspended", "login", "payment failed",
+    "confirm your identity", "bank account", "immediately"
+]
+
+URGENCY_TERMS = [
+    "urgent", "immediately", "within 24 hours", "account closure",
+    "suspended", "limited time", "final warning"
+]
+
 HTML = """
 <!DOCTYPE html>
 <html>
@@ -20,7 +31,7 @@ HTML = """
         }
 
         .container {
-            max-width: 1100px;
+            max-width: 1150px;
             margin: 50px auto;
             padding: 30px;
         }
@@ -94,6 +105,32 @@ HTML = """
             opacity: 0.92;
         }
 
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-top: 24px;
+        }
+
+        .metric {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 30px;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .metric-label {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
         .result-grid {
             display: grid;
             grid-template-columns: 1fr 2fr;
@@ -155,7 +192,11 @@ HTML = """
             font-size: 14px;
         }
 
-        @media (max-width: 800px) {
+        @media (max-width: 900px) {
+            .metrics {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
             .result-grid {
                 grid-template-columns: 1fr;
             }
@@ -184,13 +225,35 @@ HTML = """
             </form>
 
             {% if result %}
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">{{ links_count }}</div>
+                        <div class="metric-label">Links Found</div>
+                    </div>
+
+                    <div class="metric">
+                        <div class="metric-value">{{ suspicious_terms_count }}</div>
+                        <div class="metric-label">Suspicious Terms</div>
+                    </div>
+
+                    <div class="metric">
+                        <div class="metric-value">{{ short_url }}</div>
+                        <div class="metric-label">Short URL</div>
+                    </div>
+
+                    <div class="metric">
+                        <div class="metric-value">{{ urgency_detected }}</div>
+                        <div class="metric-label">Urgency Detected</div>
+                    </div>
+                </div>
+
                 <div class="result-grid">
                     <div class="risk-box {{ risk_class }}">
                         <div class="risk-title">Risk Score</div>
                         <div class="risk-score">{{ risk_score }}</div>
                         <div class="risk-level">{{ risk_level }} Risk</div>
                         <br>
-                        <div>AI-based assessment</div>
+                        <div>AI + rule-based assessment</div>
                     </div>
 
                     <div class="report">
@@ -208,8 +271,33 @@ HTML = """
 </html>
 """
 
+def local_email_metrics(email_text):
+    text = email_text.lower()
+
+    links = re.findall(r"https?://\\S+|www\\.\\S+", email_text)
+    links_count = len(links)
+
+    suspicious_terms_found = [
+        term for term in SUSPICIOUS_TERMS
+        if term in text
+    ]
+
+    urgency_found = any(term in text for term in URGENCY_TERMS)
+
+    short_url_found = any(
+        shortener in text
+        for shortener in ["bit.ly", "tinyurl", "t.co", "goo.gl", "ow.ly"]
+    )
+
+    return {
+        "links_count": links_count,
+        "suspicious_terms_count": len(suspicious_terms_found),
+        "short_url": "Yes" if short_url_found else "No",
+        "urgency_detected": "Yes" if urgency_found else "No"
+    }
+
 def extract_risk_score(text):
-    match = re.search(r"Risk Score:\s*(\d+)", text, re.IGNORECASE)
+    match = re.search(r"Risk Score:\\s*(\\d+)", text, re.IGNORECASE)
     if match:
         return max(0, min(100, int(match.group(1))))
     return 0
@@ -230,8 +318,16 @@ def home():
     risk_level = "Low"
     risk_class = "low"
 
+    metrics = {
+        "links_count": 0,
+        "suspicious_terms_count": 0,
+        "short_url": "No",
+        "urgency_detected": "No"
+    }
+
     if request.method == "POST":
         email_text = request.form["email"]
+        metrics = local_email_metrics(email_text)
 
         prompt = f"""
 You are a cybersecurity SOC analyst.
@@ -271,7 +367,11 @@ Email:
         email_text=email_text,
         risk_score=risk_score,
         risk_level=risk_level,
-        risk_class=risk_class
+        risk_class=risk_class,
+        links_count=metrics["links_count"],
+        suspicious_terms_count=metrics["suspicious_terms_count"],
+        short_url=metrics["short_url"],
+        urgency_detected=metrics["urgency_detected"]
     )
 
 
