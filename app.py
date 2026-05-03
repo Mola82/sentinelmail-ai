@@ -1,5 +1,7 @@
 from flask import Flask, request, render_template_string
 from openai import OpenAI
+import os
+import re
 
 app = Flask(__name__)
 client = OpenAI()
@@ -125,10 +127,15 @@ HTML = """
             color: #cbd5e1;
         }
 
+        .risk-score {
+            font-size: 64px;
+            font-weight: 900;
+            margin: 10px 0;
+        }
+
         .risk-level {
-            font-size: 42px;
-            font-weight: 800;
-            margin: 12px 0;
+            font-size: 22px;
+            font-weight: 700;
         }
 
         .report {
@@ -179,8 +186,10 @@ HTML = """
             {% if result %}
                 <div class="result-grid">
                     <div class="risk-box {{ risk_class }}">
-                        <div class="risk-title">Risk Level</div>
-                        <div class="risk-level">{{ risk_level }}</div>
+                        <div class="risk-title">Risk Score</div>
+                        <div class="risk-score">{{ risk_score }}</div>
+                        <div class="risk-level">{{ risk_level }} Risk</div>
+                        <br>
                         <div>AI-based assessment</div>
                     </div>
 
@@ -199,11 +208,16 @@ HTML = """
 </html>
 """
 
-def detect_risk_level(text):
-    text_lower = text.lower()
-    if "high" in text_lower:
+def extract_risk_score(text):
+    match = re.search(r"Risk Score:\s*(\d+)", text, re.IGNORECASE)
+    if match:
+        return max(0, min(100, int(match.group(1))))
+    return 0
+
+def classify_risk(score):
+    if score >= 70:
         return "High", "high"
-    elif "medium" in text_lower:
+    elif score >= 40:
         return "Medium", "medium"
     return "Low", "low"
 
@@ -212,26 +226,28 @@ def detect_risk_level(text):
 def home():
     result = None
     email_text = ""
-    risk_level = None
+    risk_score = 0
+    risk_level = "Low"
     risk_class = "low"
 
     if request.method == "POST":
         email_text = request.form["email"]
 
         prompt = f"""
-You are a senior SOC analyst.
+You are a cybersecurity SOC analyst.
 
-Analyze the following email as a security product would.
+Analyze the email and return EXACTLY in this format:
 
-Return the answer in this exact structure:
-
-Verdict:
-Risk Level: Low / Medium / High
-Threat Summary:
+Risk Score: (number between 0-100)
+Risk Level: (Low / Medium / High)
+Indicators Found: (number)
 Key Indicators:
-Recommended SOC Actions:
-User-Friendly Explanation:
-Final Decision:
+- bullet points
+
+Recommended Action:
+- bullet points
+
+Simple Explanation:
 
 Email:
 {email_text}
@@ -243,7 +259,8 @@ Email:
         )
 
         result = response.output_text
-        risk_level, risk_class = detect_risk_level(result)
+        risk_score = extract_risk_score(result)
+        risk_level, risk_class = classify_risk(risk_score)
 
         with open("latest_report.txt", "w") as file:
             file.write(result)
@@ -252,12 +269,12 @@ Email:
         HTML,
         result=result,
         email_text=email_text,
+        risk_score=risk_score,
         risk_level=risk_level,
         risk_class=risk_class
     )
 
 
-import os
-
-port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
