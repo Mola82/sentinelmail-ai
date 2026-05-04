@@ -274,7 +274,7 @@ HTML = """
 def local_email_metrics(email_text):
     text = email_text.lower()
 
-    links = re.findall(r"https?://\\S+|www\\.\\S+", email_text)
+    links = re.findall(r"https?://\S+|www\.\S+", email_text)
     links_count = len(links)
 
     suspicious_terms_found = [
