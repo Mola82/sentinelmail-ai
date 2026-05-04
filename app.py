@@ -297,7 +297,7 @@ def local_email_metrics(email_text):
     }
 
 def extract_risk_score(text):
-    match = re.search(r"Risk Score:\\s*(\\d+)", text, re.IGNORECASE)
+    match = re.search(r"Risk\\s*Score\\s*[:\\-]?\\s*(\\d+)", text, re.IGNORECASE)
     if match:
         return max(0, min(100, int(match.group(1))))
     return 0
